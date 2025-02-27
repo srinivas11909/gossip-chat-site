@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+export const config = {
+  runtime: "edge", // ✅ Use Vercel Edge Functions
+};
 
 let messages = [];
 let clients = [];
