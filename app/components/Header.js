@@ -38,7 +38,7 @@ export default function Header(){
             </div>
         </div>
     
-        <div className="sm:hidden flex flex-col items-center space-y-4 py-4 bg-white w-full">
+        {/* <div className="sm:hidden flex flex-col items-center space-y-4 py-4 bg-white w-full">
             <div className="w-full">
             <button className="w-full text-lg text-pink-600 py-2 px-6 hover:bg-pink-100 transition-all">Login</button>
             </div>
@@ -48,7 +48,7 @@ export default function Header(){
             <div className="w-full">
             <button className="w-full text-lg text-pink-600 py-2 px-6 hover:bg-pink-100 transition-all">Free Rooms</button>
             </div>
-        </div>
+        </div> */}
         </header>
       </div>
     </>

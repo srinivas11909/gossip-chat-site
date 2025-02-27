@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Picker from "emoji-picker-react";
 import axios from "axios";
+import Cookies from "js-cookie"; // ✅ Import js-cookie
 
 export default function Chat() {
     const router = useRouter();
@@ -29,6 +30,7 @@ export default function Chat() {
         });
 
         startInactivityTimer();
+        loadMessagesFromCookies();
     }, []);
 
     // Fetch online users
@@ -48,23 +50,44 @@ export default function Chat() {
         return () => clearInterval(interval);
     }, [currentUser]);
 
+
+      // Load messages from cookies on page load
+      const loadMessagesFromCookies = () => {
+        const savedMessages = Cookies.get("chatMessages");
+        if (savedMessages) {
+            setMessages(JSON.parse(savedMessages));
+        }
+    };
+
+    // Save messages in cookies after update
+    useEffect(() => {
+        if (messages.length > 0) {
+            Cookies.set("chatMessages", JSON.stringify(messages), { expires: 1 }); // ✅ Messages persist for 1 day
+        }
+    }, [messages]);
+
     // Listen for new messages (Fix duplicate messages issue)
     useEffect(() => {
         const eventSource = new EventSource("/api/messages");
         eventSource.onmessage = (event) => {
             const newMessage = JSON.parse(event.data);
+            setMessages((prev) => {
+                const updatedMessages = [...prev, newMessage];
+                Cookies.set("chatMessages", JSON.stringify(updatedMessages), { expires: 1 }); // ✅ Store messages in cookies
+                return updatedMessages;
+            });
 
             // Play notification sound only for the receiver
-            if (newMessage.to === currentUser?.username && selectedUser?.username !== newMessage.from) {
-                playNotificationSound();
-            }
+            // if (newMessage.to === currentUser?.username && selectedUser?.username !== newMessage.from) {
+            //     playNotificationSound();
+            // }
 
-            setMessages((prev) => [...prev, newMessage]); 
+           // setMessages((prev) => [...prev, newMessage]); 
         };
         return () => {
             eventSource.close();
         };
-    }, [currentUser, selectedUser]);
+    }, [currentUser]);
 
     // Send message
     const sendMessage = async () => {
@@ -72,6 +95,12 @@ export default function Chat() {
         const newMessage = { from: currentUser.username, to: selectedUser.username, text: message, gif: gifUrl };
 
         await axios.post("/api/messages", newMessage);
+        setMessages(prev => {
+            const updatedMessages = [...prev, newMessage];
+            Cookies.set("chatMessages", JSON.stringify(updatedMessages), { expires: 1 }); // ✅ Store messages in cookies
+            return updatedMessages;
+        });
+        setMessage("");
         setMessage("");
         setGifUrl("");
     };
