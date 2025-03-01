@@ -18,6 +18,9 @@ export default function Chat() {
     const [message, setMessage] = useState("");
     const [messages, setMessages] = useState([]);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+    const [gifResults, setGifResults] = useState([]); // ✅ Store GIF results
+    const [gifSearch, setGifSearch] = useState(""); // ✅ Store GIF search query
     const [gifUrl, setGifUrl] = useState("");
     const [canPlaySound, setCanPlaySound] = useState(false);
 
@@ -150,6 +153,7 @@ export default function Chat() {
         document.addEventListener("touchstart", resetTimer);
 
         resetTimer();
+        router.push("/")
     };
 
     // Logout user
@@ -181,11 +185,16 @@ export default function Chat() {
         }
     };
 
-    const fetchGif = async () => {
-        const { data } = await axios.get(`https://api.giphy.com/v1/gifs/random?api_key=${GIPHY_API_KEY}`);
-        setGifUrl(data.data.images.fixed_height.url);
-      };
-    
+
+      const fetchGif = async () => {
+        if (!gifSearch) return;
+        try {
+            const { data } = await axios.get(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${gifSearch}&limit=6`);
+            setGifResults(data.data);
+        } catch (error) {
+            console.error("Error fetching GIFs:", error);
+        }
+    };
 
     return (
         <div className="mt-[50px]">
@@ -272,6 +281,13 @@ export default function Chat() {
                                
                     <button onClick={fetchGif} className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                     >GIF</button>
+                      {showGifPicker && (
+                                    <div className="absolute bottom-12 left-0 z-10 bg-white border p-2 w-72">
+                                        <input type="text" placeholder="Search GIFs..." value={gifSearch} onChange={(e) => setGifSearch(e.target.value)} className="w-full p-2 border mb-2" />
+                                        <button onClick={fetchGif} className="w-full bg-blue-500 text-white p-2 rounded">Search</button>
+                                        <div className="grid grid-cols-3 gap-2 mt-2">{gifResults.map(gif => <img key={gif.id} src={gif.images.fixed_height.url} alt="GIF" onClick={() => setGifUrl(gif.images.fixed_height.url)} className="cursor-pointer w-24 h-24 rounded-lg" />)}</div>
+                                    </div>
+                                )}
                                 <button onClick={sendMessage} className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
                                     Send
                                 </button>
