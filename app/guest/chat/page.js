@@ -3,7 +3,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Picker from "emoji-picker-react";
 import axios from "axios";
+import CryptoJS from "crypto-js";
 import Cookies from "js-cookie"; // ✅ Import js-cookie
+
+
+const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY;
+const GIPHY_API_KEY = process.env.NEXT_PUBLIC_GIPHY_API_KEY;
 
 export default function Chat() {
     const router = useRouter();
@@ -18,20 +23,49 @@ export default function Chat() {
 
 
     useEffect(() => {
-        const storedUser = JSON.parse(sessionStorage.getItem("chatUser"));
-        if (!storedUser) {
+        // const storedUser = JSON.parse(sessionStorage.getItem("chatUser"));
+        // if (!storedUser) {
+        //     router.push("/");
+        //     return;
+        // }
+        const encryptedUser = Cookies.get("chatUser");
+        if (!encryptedUser) {
             router.push("/");
             return;
         }
-        setCurrentUser(storedUser);
+        //setCurrentUser(storedUser);
 
-        axios.post("/api/users", storedUser).then(() => {
-            setTimeout(fetchUsers, 1000); // Delay fetch to ensure the user is stored
-        });
+        // axios.post("/api/users", storedUser).then(() => {
+        //     setTimeout(fetchUsers, 1000); 
+        // });
+        try {
+            const bytes = CryptoJS.AES.decrypt(encryptedUser, SECRET_KEY);
+            const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+
+            setCurrentUser(decryptedData);
+            axios.post("/api/users", decryptedData);
+        } catch (error) {
+            console.error("Error decrypting user data:", error);
+            router.push("/");
+        }
 
         startInactivityTimer();
         loadMessagesFromCookies();
     }, []);
+    
+    //load messages from cookies
+    const loadMessagesFromCookies = () => {
+        const encryptedMessages = Cookies.get("chatMessages");
+        if (encryptedMessages) {
+            try {
+                const bytes = CryptoJS.AES.decrypt(encryptedMessages, SECRET_KEY);
+                const decryptedMessages = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+                setMessages(decryptedMessages);
+            } catch (error) {
+                console.error("Error decrypting messages:", error);
+            }
+        }
+    };
 
     // Fetch online users
     const fetchUsers = async () => {
@@ -51,18 +85,12 @@ export default function Chat() {
     }, [currentUser]);
 
 
-      // Load messages from cookies on page load
-      const loadMessagesFromCookies = () => {
-        const savedMessages = Cookies.get("chatMessages");
-        if (savedMessages) {
-            setMessages(JSON.parse(savedMessages));
-        }
-    };
 
     // Save messages in cookies after update
     useEffect(() => {
         if (messages.length > 0) {
-            Cookies.set("chatMessages", JSON.stringify(messages), { expires: 1 }); // ✅ Messages persist for 1 day
+            const encryptedMessages = CryptoJS.AES.encrypt(JSON.stringify(messages), SECRET_KEY).toString();
+            Cookies.set("chatMessages", encryptedMessages, { expires: 1, secure: true, sameSite: "Strict" });
         }
     }, [messages]);
 
@@ -154,7 +182,7 @@ export default function Chat() {
     };
 
     const fetchGif = async () => {
-        const { data } = await axios.get("https://api.giphy.com/v1/gifs/random?api_key=YOUR_GIPHY_API_KEY");
+        const { data } = await axios.get(`https://api.giphy.com/v1/gifs/random?api_key=${GIPHY_API_KEY}`);
         setGifUrl(data.data.images.fixed_height.url);
       };
     

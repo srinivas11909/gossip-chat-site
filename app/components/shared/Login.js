@@ -6,6 +6,10 @@ import axios from "axios";
 import { Country, State } from "country-state-city";
 import classes from "./Dropdown.module.css"
 
+import Cookies from "js-cookie";
+import CryptoJS from "crypto-js";
+
+const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY; // ✅ Load from `.env.local`
 
 export default function Login(){
     const [username, setUsername] = useState("");
@@ -18,12 +22,20 @@ export default function Login(){
     const [loadingLocation, setLoadingLocation] = useState(true);
     const router = useRouter();
 
+
     useEffect(() => {
-        const loggedInUser = sessionStorage.getItem("chatUser");
-        if (loggedInUser) {
-          router.push("/");
-        }
-    }, []);
+      const encryptedUser = Cookies.get("ChatUser");
+      if(encryptedUser){
+        router.push("guest/chat")
+      }
+    }, [])
+
+    // useEffect(() => {
+    //     const loggedInUser = sessionStorage.getItem("chatUser");
+    //     if (loggedInUser) {
+    //       router.push("/");
+    //     }
+    // }, []);
 
     useEffect(() => {
       //Load all countries on page load
@@ -70,9 +82,18 @@ export default function Login(){
 
 
       const handleLogin = async () => {
+        if (!username.trim()) return alert("Username is required!");
         const newUser = { username, age, gender, country, state };
+
+          // ✅ Encrypt user data before storing in cookies
+          const encryptedData = CryptoJS.AES.encrypt(
+            JSON.stringify(newUser),
+            SECRET_KEY
+        ).toString();
+        Cookies.set("chatUser", encryptedData, { expires: 1, secure: true, sameSite: "Strict" });
+
         await axios.post("/api/users", newUser);
-        sessionStorage.setItem("chatUser", JSON.stringify(newUser));
+        //sessionStorage.setItem("chatUser", JSON.stringify(newUser));
     
         if ("Notification" in window && Notification.permission !== "granted") {
           Notification.requestPermission();
