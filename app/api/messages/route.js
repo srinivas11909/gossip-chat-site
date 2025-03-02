@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-export const config = {
-  runtime: "edge", // ✅ Use Vercel Edge Functions
-};
 
 let messages = [];
-let clients = [];
+let clients = new Set(); // Use Set instead of array for better memory management
 
 export async function GET(req) {
   if (req.headers.get("accept") === "text/event-stream") {
@@ -14,10 +11,10 @@ export async function GET(req) {
           controller.enqueue(`data: ${JSON.stringify(message)}\n\n`);
         };
 
-        clients.push(sendUpdate);
+        clients.add(sendUpdate); // ✅ Use Set to prevent duplicates
 
         req.signal.addEventListener("abort", () => {
-          clients = clients.filter((c) => c !== sendUpdate);
+          clients.delete(sendUpdate); // ✅ Remove disconnected clients
         });
       },
     });
@@ -37,6 +34,9 @@ export async function GET(req) {
 export async function POST(req) {
   const msg = await req.json();
   messages.push(msg);
+  
+  // ✅ Send the new message to all connected clients
   clients.forEach((client) => client(msg));
+
   return NextResponse.json({ success: true });
 }
