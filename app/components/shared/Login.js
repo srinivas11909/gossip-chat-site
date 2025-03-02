@@ -22,13 +22,49 @@ export default function Login(){
     const [loadingLocation, setLoadingLocation] = useState(true);
     const router = useRouter();
 
-
+    
     useEffect(() => {
-      const encryptedUser = Cookies.get("ChatUser");
-      if(encryptedUser){
-        router.push("guest/chat")
+      const checkLogin = async () => {
+          const encryptedUser = Cookies.get("chatUser");
+  
+          if (!encryptedUser) return; // ✅ Don't redirect if no user
+  
+          try {
+              const bytes = CryptoJS.AES.decrypt(encryptedUser, SECRET_KEY);
+              const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+  
+              if (decryptedData?.username) {
+                  router.replace("/guest/chat"); // ✅ Use `replace` to prevent flickering
+              }
+          } catch (error) {
+              console.error("Error decrypting user data:", error);
+              Cookies.remove("chatUser"); // ✅ Remove corrupted cookies
+          }
+      };
+  
+      // ✅ Run checkLogin only once
+      if (!Cookies.get("checkedLogin")) {
+          checkLogin();
+          Cookies.set("checkedLogin", "true"); // Prevent infinite loop
       }
-    }, [])
+  }, []);
+
+    // useEffect(() => {
+    //   const encryptedUser = Cookies.get("chatUser");
+    //   if (encryptedUser) {
+    //     try {
+    //         const bytes = CryptoJS.AES.decrypt(encryptedUser, SECRET_KEY);
+    //         const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+            
+    //         if (decryptedData?.username) {
+    //             router.push("/guest/chat"); // ✅ Redirect to chat page
+    //         }
+    //     } catch (error) {
+    //         console.error("Error decrypting user data:", error);
+    //         Cookies.remove("chatUser"); // ✅ Remove invalid cookies
+    //     }
+    // }
+    // }, [])
 
     // useEffect(() => {
     //     const loggedInUser = sessionStorage.getItem("chatUser");
@@ -44,13 +80,18 @@ export default function Login(){
       const fetchLocation = async () => {
         try {
           const { data } = await axios.get("/api/location");
+          console.log(data)
           // Find country by name to get its ISO code
+          if (!data || !data.country) {
+            console.warn("Geolocation API did not return valid data.");
+            return;
+        }
           const detectedCountry = Country.getAllCountries().find(
-              (c) => c.name === data.country_name
+              (c) => c.name.toLowerCase() === data.country.toLowerCase()
             );
             if (detectedCountry) {
               setCountry(detectedCountry.isoCode);
-              updateStates(detectedCountry.isoCode, data.region_name);
+              updateStates(detectedCountry.isoCode, data.region);
             }
          // setCountry(data.country_name);// Set detected country (ISO code)
           //updateStates(data.country_code);
@@ -101,7 +142,6 @@ export default function Login(){
     
         router.push("/guest/chat");
     };
-
 
 
     return <>
