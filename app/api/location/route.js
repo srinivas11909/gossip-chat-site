@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const response = await fetch("https://ipwho.is/", {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "8.8.8.8"; // ✅ Get the real client IP
+
+    const response = await fetch(`https://ipwho.is/${ip}`, {
       cache: "no-store", // Prevents caching issues on Vercel
     });
 
