@@ -57,7 +57,8 @@ export default function Chat() {
                 setCurrentUser(decryptedData);
                 await axios.post("/api/users", decryptedData);
                 
-                fetchUsers(decryptedData); // ✅ Fetch users **after** setting currentUser
+                //fetchUsers(decryptedData); // ✅ Fetch users **after** setting currentUser
+                setTimeout(fetchUsers, 2000); 
                 loadMessagesFromCookies();
                 //startInactivityTimer();
             } catch (error) {
@@ -73,13 +74,22 @@ export default function Chat() {
 
     const fetchUsers = async (user) => {
         if (!user) return;
-
-        try {
-            const { data } = await axios.get("/api/users");
-            const filteredUsers = data.filter(u => u.username !== user.username);
-            setUsers(filteredUsers);
-        } catch (error) {
-            console.error("Error fetching users:", error);
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                const { data } = await axios.get(`/api/users?nocache=${Date.now()}`);
+                const filteredUsers = data.filter(u => u.username !== user.username);
+                if (filteredUsers.length > 0) {
+                    setUsers(filteredUsers);
+                    console.log("Fetched users:", filteredUsers);
+                    return;
+                }
+                //setUsers(filteredUsers);
+            } catch (error) {
+                console.error("Error fetching users:", error);
+            }
+            retries -= 1;
+            await new Promise((resolve) => setTimeout(resolve, 1000));
         }
     };
     
@@ -123,18 +133,14 @@ export default function Chat() {
     // };
 
     useEffect(() => {
-        if (!currentUser) return; // ✅ Only run if user is set
-        
-        const fetchUsersInterval = async () => {
-            await fetchUsers(currentUser); // ✅ Fetch immediately
-        };
-    
-        fetchUsersInterval(); // ✅ Call immediately when `currentUser` is set
-    
-        const interval = setInterval(() => fetchUsers(currentUser), 5000); // ✅ Fetch every 5 seconds
-    
-        return () => clearInterval(interval); // ✅ Cleanup interval on unmount
-    }, [currentUser]); // ✅ Only re-run when `currentUser` changes
+        if (!currentUser) return; 
+       // const fetchUsersInterval = async () => { await
+             fetchUsers(currentUser); 
+        //};
+        //fetchUsersInterval(); 
+        const interval = setInterval(() => fetchUsers(currentUser), 5000); 
+        return () => clearInterval(interval); 
+    }, [currentUser]); 
     
     // Save messages in cookies after update
     useEffect(() => {
@@ -406,7 +412,7 @@ export default function Chat() {
                                     type="text" 
                                     value={message} 
                                     onChange={(e) => setMessage(e.target.value)} 
-                                    className="flex-1 p-2 border rounded-lg focus:outline-none" 
+                                    className="flex-1 p-2 text-lg text-zinc-800 border rounded-lg focus:outline-none" 
                                     placeholder="Type your message..."
                                 />
                                 <div className="">
