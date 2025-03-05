@@ -5,7 +5,8 @@ import Picker from "emoji-picker-react";
 import axios from "axios";
 import CryptoJS from "crypto-js";
 import Cookies from "js-cookie"; // ✅ Import js-cookie
-
+//import Flag from "react-world-flags";
+import WelcomeMsg from "@/app/components/shared/WelcomeMsg";
 
 const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY;
 const GIPHY_API_KEY = process.env.NEXT_PUBLIC_GIPHY_API_KEY;
@@ -24,7 +25,20 @@ export default function Chat() {
     const [gifSearch, setGifSearch] = useState(""); // ✅ Store GIF search query
     const [gifUrl, setGifUrl] = useState("");
     const [canPlaySound, setCanPlaySound] = useState(false);
+    const [isMobileView, setIsMobileView] = useState(false); 
 
+       // Detect screen size for mobile view
+       useEffect(() => {
+        const checkScreenSize = () => {
+            setIsMobileView(window.innerWidth <= 768); // ✅ Mobile if ≤ 768px
+        };
+
+        checkScreenSize();
+        window.addEventListener("resize", checkScreenSize);
+        return () => window.removeEventListener("resize", checkScreenSize);
+    }, []);
+
+   //Fetch and verify users
     useEffect(() => {
         const verifyUser = async () => {
             const encryptedUser = Cookies.get("chatUser");
@@ -55,41 +69,7 @@ export default function Chat() {
 
         verifyUser();
     }, []);
-    // useEffect(() => {
-    //     // const storedUser = JSON.parse(sessionStorage.getItem("chatUser"));
-    //     // if (!storedUser) {
-    //     //     router.push("/");
-    //     //     return;
-    //     // }
-    //     const encryptedUser = Cookies.get("chatUser");
-    //     if (!encryptedUser) {
-    //         router.push("/");
-    //         return;
-    //     }
-    //     //setCurrentUser(storedUser);
 
-    //     // axios.post("/api/users", storedUser).then(() => {
-    //     //     setTimeout(fetchUsers, 1000); 
-    //     // });
-    //     try {
-    //         const bytes = CryptoJS.AES.decrypt(encryptedUser, SECRET_KEY);
-    //         const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-    //         if (!decryptedData?.username) {
-    //             throw new Error("Invalid user data");
-    //         }
-    
-
-    //         setCurrentUser(decryptedData);
-    //         axios.post("/api/users", decryptedData);
-    //     } catch (error) {
-    //         console.error("Error decrypting user data:", error);
-    //         Cookies.remove("chatUser");
-    //         router.push("/");
-    //     }
-
-    //     startInactivityTimer();
-    //     loadMessagesFromCookies();
-    // }, []);
 
     const fetchUsers = async (user) => {
         if (!user) return;
@@ -142,17 +122,20 @@ export default function Chat() {
     //     }
     // };
 
-
     useEffect(() => {
-        if (currentUser) {
-            fetchUsers(); 
-            const interval = setInterval(fetchUsers, 5000); // Refresh user list every 5s
-            return () => clearInterval(interval);
-          }
-    }, [currentUser]);
-
-
-
+        if (!currentUser) return; // ✅ Only run if user is set
+        
+        const fetchUsersInterval = async () => {
+            await fetchUsers(currentUser); // ✅ Fetch immediately
+        };
+    
+        fetchUsersInterval(); // ✅ Call immediately when `currentUser` is set
+    
+        const interval = setInterval(() => fetchUsers(currentUser), 5000); // ✅ Fetch every 5 seconds
+    
+        return () => clearInterval(interval); // ✅ Cleanup interval on unmount
+    }, [currentUser]); // ✅ Only re-run when `currentUser` changes
+    
     // Save messages in cookies after update
     useEffect(() => {
         if (messages.length > 0) {
@@ -200,20 +183,7 @@ export default function Chat() {
     }, [currentUser, canPlaySound]);  // ✅ Added `canPlaySound` as a dependency
     
     // Send message
-    // const sendMessage = async () => {
-    //     if (!selectedUser || message.trim() === "") return;
-    //     const newMessage = { from: currentUser.username, to: selectedUser.username, text: message, gif: gifUrl };
 
-    //     await axios.post("/api/messages", newMessage);
-    //     setMessages(prev => {
-    //         const updatedMessages = [...prev, newMessage];
-    //         Cookies.set("chatMessages", JSON.stringify(updatedMessages), { expires: 1 }); // ✅ Store messages in cookies
-    //         return updatedMessages;
-    //     });
-    //     setMessage("");
-    //     setMessage("");
-    //     setGifUrl("");
-    // };
     const sendMessage = async () => {
         if (!selectedUser || message.trim() === "") return;
     
@@ -290,7 +260,7 @@ export default function Chat() {
     // Logout user
     const handleLogout = async () => {
         await axios.delete("/api/users", { data: { username: currentUser.username } });
-        sessionStorage.clear();
+        Cookies.remove("chatuser");
         router.push("/");
     };
 
@@ -343,38 +313,63 @@ export default function Chat() {
     return (
         <div className="mt-[50px]">
             <div className="w-full flex h-screen">
-                {/* Sidebar - Online Users */}
-                <div className="w-1/4 bg-gray-100 p-4">
-                    <h3 className="text-lg font-semibold">Online Users ({users.length})</h3>
+                {/*sidebar or userslist*/}
+
+                <div className={`p-4 bg-white border-r md:w-1/4 w-full md:relative absolute ${selectedUser ? "hidden md:flex" : "flex"} flex-col h-screen`}>
+                <h3 className="text-lg font-semibold p-4 border-b">Online Users ({users.length})</h3>
+                <div className="overflow-y-auto flex-1">
                     {users.map(user => (
                         <div 
                             key={user.username} 
                             onClick={() => setSelectedUser(user)}
-                            className={`cursor-pointer p-2 rounded ${selectedUser?.username === user.username ? "bg-blue-500 text-white" : "hover:bg-gray-200"}`}
+                            className={`cursor-pointer p-3 flex items-center gap-3 border-b-[1px] border-white hover:opacity-80 transition ${
+                                user.gender === "Male" ? "bg-blue-200" : "bg-pink-200"
+                            }`}
                         >
-                            {user.username} ({user.age}, {user.state}, {user.country})
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-full text-lg ${
+                                user.gender === "Male" ? "bg-white text-white" : "bg-white text-white"
+                            }`}>
+                                {/* {{user.username.charAt(0).toUpperCase()}} */}
+                                <img 
+                                src={`https://flagcdn.com/w40/${user.country.toLowerCase()}.png`} 
+                                alt={`${user.country} Flag`} 
+                                className="w-6"
+                            />
+                            </div>
+                            <div className="flex flex-col">
+                                <div>
+                                  <p className="text-base font-semibold">{user.username}</p>
+                                   <p className="text-sm text-gray-700">{user.age} yrs, {user.state}, {user.country}</p>
+                                </div>
+                            </div>
                         </div>
                     ))}
                 </div>
+                <button onClick={handleLogout} className="p-3 bg-red-500 text-white rounded-md w-full mt-3">Logout</button>
+            </div>
 
                 {/* Chat Window */}
-                <div className="w-3/4 flex flex-col border-l">
-                    {!selectedUser ? (
-                        <h2 className="p-4">Welcome to Gossip! Select a user to chat.</h2>
-                    ) : (
+                <div className={`flex flex-col border-l bg-white md:w-3/4 w-full h-full absolute md:relative transition-all duration-300 
+    ${selectedUser ? 'block' : 'hidden md:flex'}`}>                    {!selectedUser  && (
+                        <WelcomeMsg currentUser={currentUser} />
+                        // <div className="hidden md:flex items-center justify-center flex-1 text-gray-500">
+                        //    {currentUser ? (
+                        //         <>👋 Hello, <span className="font-bold">{currentUser.username}</span>! Select a chat to start messaging.</>
+                        //     ) : (
+                        //         <>Select a chat to start messaging</>
+                        //     )}
+                        // </div>
+                    )}
+                    {selectedUser && (
                         <>
-                            <div className="chat-header p-4 bg-blue-500 text-white font-semibold text-lg flex justify-between">
-                                <h2>{selectedUser.username} ({selectedUser.age}, {selectedUser.country})</h2>
-                                <button 
-                                    onClick={handleLogout} 
-                                    className="bg-red-500 px-3 py-1 text-white rounded hover:bg-red-600"
-                                >
-                                    Logout
-                                </button>
-                            </div>
-
-                            {/* Chat Messages */}
-                            <div className="chat-body flex-1 p-4 overflow-y-auto space-y-4">
+                        <div className="flex items-center p-4 bg-blue-500 text-white">
+                            <button onClick={() => setSelectedUser(null)} className="mr-4 md:hidden">
+                                ⬅ Back
+                            </button>
+                          <h2 className="text-lg font-semibold">{selectedUser.username} ({selectedUser.age}, {selectedUser.country})</h2>
+                         </div>
+                                                     {/* Chat Messages */}
+                                                     <div className="flex-1 p-4 overflow-y-auto bg-gray-100">
                                 {messages
                                     .filter(
                                         (msg) =>
@@ -382,14 +377,14 @@ export default function Chat() {
                                             (msg.from === selectedUser.username && msg.to === currentUser.username)
                                     )
                                     .map((msg, index) => (
-                                        <div key={index} className={`flex items-center ${msg.from === currentUser.username ? "justify-end" : "justify-start"}`}>
+                                        <div key={index} className={`flex items-center mb-1 ${msg.from === currentUser.username ? "justify-end" : "justify-start"}`}>
                                             {msg.from !== currentUser.username && (
                                                 <div className="w-8 h-8 flex items-center justify-center bg-gray-300 text-black rounded-full text-lg font-bold mr-2">
                                                     {msg.from.charAt(0).toUpperCase()}
                                                 </div>
                                             )}
                                             <div
-                                                className={`py-2 px-4 rounded-lg max-w-[60%] text-white text-sm ${
+                                                className={`py-2 px-4 rounded-lg max-w-[60%] text-sm ${
                                                     msg.from === currentUser.username
                                                     ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
                                                     : "bg-gray-300 text-black"
@@ -405,9 +400,8 @@ export default function Chat() {
                                         </div>
                                     ))}
                             </div>
-
-                            {/* Message Input */}
-                            <div className="chat-footer p-4 border-t flex relative">
+                                                        {/* Message Input */}
+                                                        <div className="chat-footer p-4 border-t flex relative">
                                 <input 
                                     type="text" 
                                     value={message} 
@@ -438,7 +432,25 @@ export default function Chat() {
                                 </button>
                             </div>
                         </>
-                    )}
+                    )} 
+              
+                            {/* Header with Back Button (Mobile Only) */}
+                   
+
+                            {/* <div className="chat-header p-4 bg-white text-white font-semibold text-lg flex justify-between border">
+                                <h2 className="text-zinc-800 font-bold">{selectedUser.username} ({selectedUser.age}, {selectedUser.country})</h2>
+                                <button 
+                                    onClick={handleLogout} 
+                                    className="bg-red-500 px-3 py-1 text-white rounded hover:bg-red-600"
+                                >
+                                    Logout
+                                </button>
+                            </div> */}
+
+
+
+
+                
                 </div>
             </div>
         </div>

@@ -115,7 +115,8 @@ export default function Login(){
     };
 
     const handleCountryChange = (e) => {
-      const newCountryCode  = e.target.value;
+      const newCountryCode = e.target.value// e.target.value;
+      console.log(e.target.options[e.target.selectedIndex].text)
       setCountry(newCountryCode);
       updateStates(newCountryCode);
     };
