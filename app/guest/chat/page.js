@@ -316,7 +316,7 @@ export default function Chat() {
                 {/*sidebar or userslist*/}
 
                 <div className={`p-4 bg-white border-r md:w-1/4 w-full md:relative absolute ${selectedUser ? "hidden md:flex" : "flex"} flex-col h-screen`}>
-                <h3 className="text-lg font-semibold p-4 border-b">Online Users ({users.length})</h3>
+                <h3 className="text-lg font-semibold text-zinc-800 p-4 border-b">Online Users ({users.length})</h3>
                 <div className="overflow-y-auto flex-1">
                     {users.map(user => (
                         <div 
@@ -338,7 +338,7 @@ export default function Chat() {
                             </div>
                             <div className="flex flex-col">
                                 <div>
-                                  <p className="text-base font-semibold">{user.username}</p>
+                                   <p className="text-base text-zinc-800 font-semibold">{user.username}</p>
                                    <p className="text-sm text-gray-700">{user.age} yrs, {user.state}, {user.country}</p>
                                 </div>
                             </div>
