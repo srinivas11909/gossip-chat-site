@@ -7,6 +7,9 @@ import CryptoJS from "crypto-js";
 import Cookies from "js-cookie"; // ✅ Import js-cookie
 //import Flag from "react-world-flags";
 import WelcomeMsg from "@/app/components/shared/WelcomeMsg";
+import styles from "./Chat.module.css"
+
+import Image from 'next/image';
 
 const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY;
 const GIPHY_API_KEY = process.env.NEXT_PUBLIC_GIPHY_API_KEY;
@@ -318,26 +321,30 @@ export default function Chat() {
                                 user.gender === "Male" ? "bg-blue-200" : "bg-pink-200"
                             }`}
                         >
-                            <div className={`w-12 h-12 flex items-center justify-center rounded-full text-lg ${
+                            <div className={`w-8 h-8 flex items-center justify-center rounded-full text-lg ${
                                 user.gender === "Male" ? "bg-white text-white" : "bg-white text-white"
                             }`}>
                                 {/* {{user.username.charAt(0).toUpperCase()}} */}
-                                <img 
-                                src={`https://flagcdn.com/w40/${user.country.toLowerCase()}.png`} 
-                                alt={`${user.country} Flag`} 
-                                className="w-6"
-                            />
+                               
+                            <Image src={user.gender === "Male" ? "/images/male.png": "/images/female.png"} alt="gender" height={24} width={24} priority />
+
                             </div>
-                            <div className="flex flex-col w-1/2">
+                            <div className={`flex flex-col ${styles.userTextWrapper}`}>
                                 <div className="">
                                    <p className="text-base text-zinc-800 font-semibold truncate w-full overflow-hidden text-ellipsis whitespace-nowrap">{user.username}</p>
-                                   <p className="text-sm text-gray-700">{user.age} yrs, {user.state}, {user.country}</p>
+                                   <p className="text-xs text-gray-700">{user.age} yrs, {user.gender}, {user.stateName}</p>
                                      {/* 🔴 Show unread message count if > 0 */}
                                         {unreadMessages[user.username] > 0 && (
                                             <span className="absolute right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full" style={{marginTop: "-15px", top: "50%"}}>
                                                 {unreadMessages[user.username]}
                                             </span>
                                         )}
+                                         <img 
+                                            src={`https://flagcdn.com/w40/${user.country.toLowerCase()}.png`} 
+                                            alt={`${user.country} Flag`} 
+                                            className="w-6 absolute"
+                                            style={{marginTop: "-8px",right: "20px", top:"50%"}}
+                                        />
                                 </div>
                             </div>
                         </div>
@@ -347,7 +354,7 @@ export default function Chat() {
             </div>
 
                 {/* Chat Window */}
-                <div className={`flex flex-col border-l bg-white md:w-3/4 w-full h-full absolute md:relative transition-all duration-300 
+                <div className={`flex flex-col border-l bg-white md:w-[560px] w-full h-full absolute md:relative transition-all duration-300 
     ${selectedUser ? 'block' : 'hidden md:flex'}`}>                    {!selectedUser  && (
                         <WelcomeMsg currentUser={currentUser} />
                         // <div className="hidden md:flex items-center justify-center flex-1 text-gray-500">
@@ -364,10 +371,11 @@ export default function Chat() {
                             <button onClick={() => setSelectedUser(null)} className="mr-4 md:hidden">
                                 ⬅ Back
                             </button>
-                          <h2 className="text-lg font-semibold">{selectedUser.username} ({selectedUser.age}, {selectedUser.country})</h2>
+                          <h2 className="text-lg font-semibold">{selectedUser.username} </h2>
+                          <p className="text-sm text-white"> {selectedUser.gender}, {selectedUser.age}, {selectedUser.stateName}</p>
                          </div>
                                                      {/* Chat Messages */}
-                                                     <div className="flex-1 p-4 overflow-y-auto bg-gray-100">
+                                                     <div className="flex-1 p-4 overflow-y-auto bg-gray-100 border-r">
                                 {messages
                                     .filter(
                                         (msg) =>
@@ -399,7 +407,7 @@ export default function Chat() {
                                     ))}
                             </div>
                                                         {/* Message Input */}
-                                                        <div className="chat-footer p-4 border-t flex relative">
+                                                        <div className="chat-footer p-4 border-t border-b border-r flex relative">
                                 <input 
                                     type="text" 
                                     value={message} 
@@ -408,7 +416,7 @@ export default function Chat() {
                                     placeholder="Type your message..."
                                 />
                                 <div className="flex">
-                                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="ml-2 px-3 md:px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                     >😀</button>
                                         {showEmojiPicker && <div className="absolute bottom-12 left-0">
                                             <Picker onEmojiClick={(e) => setMessage((prev) => prev + e.emoji)} /></div>}
@@ -425,7 +433,7 @@ export default function Chat() {
                                     </div>
                                 )}
                                 </div> */}
-                                <button onClick={sendMessage} className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                                <button onClick={sendMessage} className="ml-2 px-3 md:px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
                                     {isMobileView ?             <svg className="w-6 h-6 rotate-90" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
  : "Send"}
                                 </button>

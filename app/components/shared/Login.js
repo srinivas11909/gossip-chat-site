@@ -9,11 +9,13 @@ import classes from "./Dropdown.module.css"
 import Cookies from "js-cookie";
 import CryptoJS from "crypto-js";
 
+
+
 const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY; // ✅ Load from `.env.local`
 
 export default function Login(){
     const [username, setUsername] = useState("");
-    const [age, setAge] = useState("");
+    const [age, setAge] = useState("18");
     const [gender, setGender] = useState("Male");
     const [country, setCountry] = useState("");
     const [state, setState] = useState(""); 
@@ -21,6 +23,8 @@ export default function Login(){
     const [states, setStates] = useState([]); // states of selected countires 
     const [loadingLocation, setLoadingLocation] = useState(true);
     const router = useRouter();
+    const [stateName, setStateName] = useState("")
+    const [countryName, setCountryName] = useState("")
 
     
     useEffect(() => {
@@ -89,8 +93,10 @@ export default function Login(){
           const detectedCountry = Country.getAllCountries().find(
               (c) => c.name.toLowerCase() === data.country.toLowerCase()
             );
+            console.log(detectedCountry)
             if (detectedCountry) {
               setCountry(detectedCountry.isoCode);
+              setCountryName(detectedCountry.name)
               updateStates(detectedCountry.isoCode, data.region);
             }
          // setCountry(data.country_name);// Set detected country (ISO code)
@@ -109,13 +115,17 @@ export default function Login(){
 
     const updateStates = (selectedCountryCode, detectedState = "") => {
       const statesData = State.getStatesOfCountry(selectedCountryCode);
+      console.log(statesData)
       setStates(statesData);
       const matchedState = statesData.find((s) => s.name === detectedState);
+      console.log(matchedState)
+      setStateName(matchedState.name)
       setState(matchedState ? matchedState.isoCode : statesData[0]?.isoCode || "");
     };
 
     const handleCountryChange = (e) => {
       const newCountryCode = e.target.value// e.target.value;
+      setCountryName(e.target.options[e.target.selectedIndex].text);
       console.log(e.target.options[e.target.selectedIndex].text)
       setCountry(newCountryCode);
       updateStates(newCountryCode);
@@ -125,7 +135,7 @@ export default function Login(){
 
       const handleLogin = async () => {
         if (!username.trim()) return alert("Username is required!");
-        const newUser = { username, age, gender, country, state };
+        const newUser = { username, age, gender, country, state, countryName, stateName };
 
           // ✅ Encrypt user data before storing in cookies
           const encryptedData = CryptoJS.AES.encrypt(
@@ -156,8 +166,8 @@ export default function Login(){
                 ))}
             </select>
                 <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-1/2 font-semibold bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded pl-3 pr-8 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-400 shadow-sm focus:shadow-md appearance-none ml-auto">
-                    <option>👨 Male</option>
-                    <option>👩 Female</option>
+                    <option value="Male">👨 Male</option>
+                    <option value="Female">👩 Female</option>
                 </select>
             </div>
             {/* <Dropdown onChange={getData} /> */}
@@ -177,7 +187,7 @@ export default function Login(){
       
       
       {/* State dropdown updates dynamically */}
-      <select value={state} onChange={(e) => setState(e.target.value)}  disabled={loadingLocation} className={`w-full font-semibold bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded pl-3 pr-8 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-400 shadow-sm focus:shadow-md appearance-none cursor-pointer ${classes.slect}`}>
+      <select value={state} onChange={(e) => { setState(e.target.value); setStateName(e.target.options[e.target.selectedIndex].text) }}  disabled={loadingLocation} className={`w-full font-semibold bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded pl-3 pr-8 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-400 shadow-sm focus:shadow-md appearance-none cursor-pointer ${classes.slect}`}>
         {loadingLocation  ? 
         (<option>Detecting location...</option>) : 
         states.length > 0 ? (
