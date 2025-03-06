@@ -84,7 +84,6 @@ export default function Login(){
       const fetchLocation = async () => {
         try {
           const { data } = await axios.get("/api/location");
-          console.log(data)
           // Find country by name to get its ISO code
           if (!data || !data.country) {
             console.warn("Geolocation API did not return valid data.");
@@ -93,7 +92,6 @@ export default function Login(){
           const detectedCountry = Country.getAllCountries().find(
               (c) => c.name.toLowerCase() === data.country.toLowerCase()
             );
-            console.log(detectedCountry)
             if (detectedCountry) {
               setCountry(detectedCountry.isoCode);
               setCountryName(detectedCountry.name)
@@ -115,10 +113,8 @@ export default function Login(){
 
     const updateStates = (selectedCountryCode, detectedState = "") => {
       const statesData = State.getStatesOfCountry(selectedCountryCode);
-      console.log(statesData)
       setStates(statesData);
       const matchedState = statesData.find((s) => s.name === detectedState);
-      console.log(matchedState)
       setStateName(matchedState.name)
       setState(matchedState ? matchedState.isoCode : statesData[0]?.isoCode || "");
     };
@@ -126,7 +122,6 @@ export default function Login(){
     const handleCountryChange = (e) => {
       const newCountryCode = e.target.value// e.target.value;
       setCountryName(e.target.options[e.target.selectedIndex].text);
-      console.log(e.target.options[e.target.selectedIndex].text)
       setCountry(newCountryCode);
       updateStates(newCountryCode);
     };
