@@ -64,6 +64,7 @@ export default function Chat() {
             } catch (error) {
                 console.error("Error decrypting user data:", error);
                 Cookies.remove("chatUser");
+                Cookies.set("checkedLogin", "false")
                 router.replace("/");
             }
         };
@@ -81,7 +82,6 @@ export default function Chat() {
                 const filteredUsers = data.filter(u => u.username !== user.username);
                 if (filteredUsers.length > 0) {
                     setUsers(filteredUsers);
-                    console.log("Fetched users:", filteredUsers);
                     return;
                 }
                 //setUsers(filteredUsers);
@@ -108,29 +108,7 @@ export default function Chat() {
     };
 
 
-    
-
-    // Fetch online users
-    // const fetchUsers = async () => {
-    //     try {
-    //         const { data } = await axios.get("/api/users");
-    //         const filteredUsers = data.filter(user => user.username !== currentUser?.username);
-    //         setUsers(filteredUsers);
-    //     } catch (error) {
-    //         console.error("Error fetching users:", error);
-    //     }
-    // };
-    // const fetchUsers = async () => {
-    //     if (!currentUser) return; 
-    
-    //     try {
-    //         const { data } = await axios.get("/api/users");
-    //         const filteredUsers = data.filter(user => user.username !== currentUser.username);
-    //         setUsers(filteredUsers);
-    //     } catch (error) {
-    //         console.error("Error fetching users:", error);
-    //     }
-    // };
+ 
 
     useEffect(() => {
         if (!currentUser) return; 
@@ -266,7 +244,11 @@ export default function Chat() {
     // Logout user
     const handleLogout = async () => {
         await axios.delete("/api/users", { data: { username: currentUser.username } });
-        Cookies.remove("chatuser");
+          // ✅ Remove cookies properly
+        Cookies.remove("chatUser", { path: "/" });
+        Cookies.remove("chatMessages", { path: "/" });
+
+        setCurrentUser(null); // Clear user state
         router.push("/");
     };
 
@@ -415,7 +397,7 @@ export default function Chat() {
                                     className="flex-1 p-2 text-lg text-zinc-800 border rounded-lg focus:outline-none" 
                                     placeholder="Type your message..."
                                 />
-                                <div className="">
+                                <div className="flex">
                                 <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                     >😀</button>
                                         {showEmojiPicker && <div className="absolute bottom-12 left-0">
@@ -434,7 +416,8 @@ export default function Chat() {
                                 )}
                                 </div> */}
                                 <button onClick={sendMessage} className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                                    Send
+                                    {isMobileView ?             <svg className="w-6 h-6 rotate-90" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+ : "Send"}
                                 </button>
                             </div>
                         </>
