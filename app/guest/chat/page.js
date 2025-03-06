@@ -309,8 +309,12 @@ export default function Chat() {
                     {users.map(user => (
                         <div 
                             key={user.username} 
-                            onClick={() => setSelectedUser(user)}
-                            className={`cursor-pointer p-3 flex items-center gap-3 border-b-[1px] border-white hover:opacity-80 transition ${
+                            onClick={() => {
+                                setSelectedUser(user);
+                                setUnreadMessages((prev) => ({ ...prev, [user.username]: 0 }));
+                            }}
+                            
+                            className={`cursor-pointer p-3 relative flex items-center gap-3 border-b-[1px] border-white hover:opacity-80 transition ${
                                 user.gender === "Male" ? "bg-blue-200" : "bg-pink-200"
                             }`}
                         >
@@ -324,10 +328,16 @@ export default function Chat() {
                                 className="w-6"
                             />
                             </div>
-                            <div className="flex flex-col">
-                                <div>
-                                   <p className="text-base text-zinc-800 font-semibold">{user.username}</p>
+                            <div className="flex flex-col w-1/2">
+                                <div className="">
+                                   <p className="text-base text-zinc-800 font-semibold truncate w-full overflow-hidden text-ellipsis whitespace-nowrap">{user.username}</p>
                                    <p className="text-sm text-gray-700">{user.age} yrs, {user.state}, {user.country}</p>
+                                     {/* 🔴 Show unread message count if > 0 */}
+                                        {unreadMessages[user.username] > 0 && (
+                                            <span className="absolute right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full" style={{marginTop: "-15px", top: "50%"}}>
+                                                {unreadMessages[user.username]}
+                                            </span>
+                                        )}
                                 </div>
                             </div>
                         </div>
