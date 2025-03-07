@@ -12,9 +12,11 @@ export async function GET(req) {
         };
 
         clients.add(sendUpdate); 
+        messages.forEach(sendUpdate)
 
         req.signal.addEventListener("abort", () => {
           clients.delete(sendUpdate); 
+          controller.close(); // ✅ Properly close the stream
         });
       },
     });

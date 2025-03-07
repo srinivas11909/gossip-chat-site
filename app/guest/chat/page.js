@@ -13,7 +13,7 @@ import Image from 'next/image';
 
 const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY;
 const GIPHY_API_KEY = process.env.NEXT_PUBLIC_GIPHY_API_KEY;
-const showGifPicker = true;
+
 
 export default function Chat() {
     const router = useRouter();
@@ -26,11 +26,12 @@ export default function Chat() {
     const [unreadMessages, setUnreadMessages] = useState({});
     const [gifResults, setGifResults] = useState([]); // ✅ Store GIF results
     const [gifSearch, setGifSearch] = useState(""); // ✅ Store GIF search query
-    const [gifUrl, setGifUrl] = useState("");
     const [canPlaySound, setCanPlaySound] = useState(false);
     const [isMobileView, setIsMobileView] = useState(false); 
     const chatEndRef = useRef(null);
     const emojiPickerRef = useRef(null);
+    const gifPickerRef = useRef(null);
+    const [showGifPicker, setShowGifPicker] = useState(false);
 
 
        // Detect screen size for mobile view
@@ -107,8 +108,11 @@ export default function Chat() {
         if (encryptedMessages) {
             try {
                 const bytes = CryptoJS.AES.decrypt(encryptedMessages, SECRET_KEY);
-                const decryptedMessages = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-                setMessages(decryptedMessages);
+                const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+
+                if (!decryptedText) throw new Error("Decryption failed");
+        
+                setMessages(JSON.parse(decryptedText));
             } catch (error) {
                 console.error("Error decrypting messages:", error);
             }
@@ -176,40 +180,88 @@ export default function Chat() {
     
     // Send message
 
-    const sendMessage = async () => {
-        if (!selectedUser || message.trim() === "") return;
+    // const sendMessage = async (gifUrl=null) => {
+    //     alert("sds")
+    //     alert(gifUrl)
+    //     if (!selectedUser || message.trim() === "") return;
+    
+    //     const newMessage = {
+    //         from: currentUser.username,
+    //         to: selectedUser.username,
+    //         text: gifUrl ? "" : message,
+    //         gif: gifUrl || "",
+    //     };
+    
+    //     try {
+    //         await axios.post("/api/messages", newMessage);
+    
+    //         // ✅ Load existing messages from cookies
+    //         const encryptedMessages = Cookies.get("chatMessages");
+    //         let savedMessages = encryptedMessages 
+    //             ? JSON.parse(CryptoJS.AES.decrypt(encryptedMessages, SECRET_KEY).toString(CryptoJS.enc.Utf8))
+    //             : [];
+    
+    //         // ✅ Only save messages the user RECEIVED, not their own sent ones
+    //         if (newMessage.to === currentUser.username) {
+    //             savedMessages.push(newMessage);
+    //             const encryptedData = CryptoJS.AES.encrypt(JSON.stringify(savedMessages), SECRET_KEY).toString();
+    //             Cookies.set("chatMessages", encryptedData, { expires: 1, secure: true, sameSite: "Strict" });
+    //         }
+    
+    //         // ✅ Clear input fields
+    //         setMessage("");
+    //         setShowEmojiPicker(false)
+    //     } catch (error) {
+    //         console.error("Error sending message:", error);
+    //     }
+    // };
+
+    const sendMessage = async (content = "") => {
+        if (!selectedUser || (!message.trim() && !content.trim())) return;
     
         const newMessage = {
             from: currentUser.username,
             to: selectedUser.username,
-            text: message,
-            gif: gifUrl
+            text: content || message,  // ✅ If sending a GIF, use content
+            gif: content.includes("giphy.com") ? content : "",  // ✅ Detect if it's a GIF
         };
     
         try {
             await axios.post("/api/messages", newMessage);
     
-            // ✅ Load existing messages from cookies
-            const encryptedMessages = Cookies.get("chatMessages");
-            let savedMessages = encryptedMessages 
-                ? JSON.parse(CryptoJS.AES.decrypt(encryptedMessages, SECRET_KEY).toString(CryptoJS.enc.Utf8))
-                : [];
+            // ✅ Load existing messages safely
+            let savedMessages = [];
     
-            // ✅ Only save messages the user RECEIVED, not their own sent ones
-            if (newMessage.to === currentUser.username) {
-                savedMessages.push(newMessage);
-                const encryptedData = CryptoJS.AES.encrypt(JSON.stringify(savedMessages), SECRET_KEY).toString();
-                Cookies.set("chatMessages", encryptedData, { expires: 1, secure: true, sameSite: "Strict" });
+            try {
+                const encryptedMessages = Cookies.get("chatMessages");
+    
+                if (encryptedMessages) {
+                    const bytes = CryptoJS.AES.decrypt(encryptedMessages, SECRET_KEY);
+                    const decryptedText = bytes.toString(CryptoJS.enc.Utf8);
+    
+                    if (!decryptedText) throw new Error("Decryption failed");
+    
+                    savedMessages = JSON.parse(decryptedText);
+                }
+            } catch (error) {
+                console.error("Error decrypting chat messages:", error);
+                Cookies.remove("chatMessages"); // Remove corrupted messages
             }
     
-            // ✅ Clear input fields
-            setMessage("");
-            setGifUrl("");
+            // ✅ Save new messages back to cookies
+            savedMessages.push(newMessage);
+            const encryptedData = CryptoJS.AES.encrypt(JSON.stringify(savedMessages), SECRET_KEY).toString();
+            Cookies.set("chatMessages", encryptedData, { expires: 1, secure: true, sameSite: "Strict" });
+    
+            setMessage(""); // ✅ Clear input
             setShowEmojiPicker(false)
+            setShowGifPicker(false)
+
         } catch (error) {
             console.error("Error sending message:", error);
         }
     };
+    
     
 
     // Auto logout if inactive for 5 mins
@@ -310,13 +362,27 @@ export default function Chat() {
         if (chatEndRef.current) {
           chatEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
-      }, [messages, selectedUser]); 
+      }, [messages]); 
 
           // Close emoji picker when clicking outside
           useEffect(() => {
             const handleClickOutside = (event) => {
                 if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
                     setShowEmojiPicker(false);
+                }
+            };
+    
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => {
+                document.removeEventListener("mousedown", handleClickOutside);
+            };
+        }, []);
+
+
+        useEffect(() => {
+            const handleClickOutside = (event) => {
+                if (gifPickerRef.current && !gifPickerRef.current.contains(event.target)) {
+                    setShowGifPicker(false);
                 }
             };
     
@@ -382,13 +448,7 @@ export default function Chat() {
                 <div className={`flex flex-col border-l bg-white md:w-[560px] w-full h-full absolute md:relative transition-all duration-300 
     ${selectedUser ? 'block' : 'hidden md:flex'}`}>                    {!selectedUser  && (
                         <WelcomeMsg currentUser={currentUser} />
-                        // <div className="hidden md:flex items-center justify-center flex-1 text-gray-500">
-                        //    {currentUser ? (
-                        //         <>👋 Hello, <span className="font-bold">{currentUser.username}</span>! Select a chat to start messaging.</>
-                        //     ) : (
-                        //         <>Select a chat to start messaging</>
-                        //     )}
-                        // </div>
+
                     )}
                     {selectedUser && (
                         <>
@@ -411,11 +471,12 @@ export default function Chat() {
                                 </div>
                            </div>
                          </div>
-                                                     {/* Chat Messages */}
-                                                     <div className="flex-1 p-4 overflow-y-auto bg-gray-100 border-r">
+                     {/* Chat Messages */}
+                         <div className="flex-1 p-4 overflow-y-auto bg-gray-100 border-r">
                                 {messages
                                     .filter(
                                         (msg) =>
+                                            currentUser && selectedUser &&
                                             (msg.from === currentUser.username && msg.to === selectedUser.username) ||
                                             (msg.from === selectedUser.username && msg.to === currentUser.username)
                                     )
@@ -433,7 +494,12 @@ export default function Chat() {
                                                     : "bg-gray-300 text-black"
                                                 }`}
                                             >
-                                                {msg.text}
+                                                
+                                                {msg.gif ? (
+                                                                <img src={msg.gif} alt="GIF" className="w-32 h-32 rounded-lg" />
+                                                            ) : (
+                                                                msg.text
+                                                            )}
                                             </div>   
                                             {msg.from === currentUser.username && (
                                                 <div className="w-8 h-8 flex items-center justify-center bg-blue-500 text-white rounded-full text-lg font-bold ml-2">
@@ -445,35 +511,42 @@ export default function Chat() {
                                       <div ref={chatEndRef}></div>  
 
                             </div>
-                                                        {/* Message Input */}
-                                                        <div className="chat-footer p-4 border-t border-b border-r flex relative">
+                        {/* Message Input */}
+                        <div className="chat-footer p-4 border-t border-b border-r flex relative">
                                 <input 
                                     type="text" 
                                     value={message} 
                                     onChange={(e) => setMessage(e.target.value)} 
-                                    className="flex-1 p-2 text-sm text-zinc-800 border rounded-lg focus:outline-none" 
+                                    className="flex-1 p-2 text-sm text-zinc-800 border rounded-lg focus:outline-none focus:ring-0" 
                                     placeholder="Type your message..."
                                 />
                                 <div className="flex" >
-                                <button  onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="ml-2 px-2 md:px-4 py-2 md:bg-blue-500 text-white rounded-lg md:hover:bg-blue-600"
-                    >😀</button>
+                                    <button  onClick={() => {
+                                      setShowEmojiPicker(!showEmojiPicker)
+                                      setShowGifPicker(false)
+                                     setGifSearch("")
+                                    }} className="ml-2 px-2 md:px-4 py-2 md:bg-blue-500 text-white rounded-lg md:hover:bg-blue-600"
+                                    >😀</button>
                                         {showEmojiPicker && <div ref={emojiPickerRef} className="absolute bottom-12 left-0" onClick={(e) => e.stopPropagation()}>
                                             <Picker emojiStyle={"facebook"} onEmojiClick={(e) => setMessage((prev) => prev + e.emoji)} /></div>}
 
                                 </div>
-                                {/* <div className="">
-                    <button onClick={fetchGif} className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                    >GIF</button>
-                      {showGifPicker && (
-                                    <div className="absolute bottom-12 left-0 z-10 bg-white border p-2 w-72">
-                                        <input type="text" placeholder="Search GIFs..." value={gifSearch} onChange={(e) => setGifSearch(e.target.value)} className="w-full p-2 border mb-2" />
-                                        <button onClick={fetchGif} className="w-full bg-blue-500 text-white p-2 rounded">Search</button>
-                                        <div className="grid grid-cols-3 gap-2 mt-2">{gifResults.map(gif => <img key={gif.id} src={gif.images.fixed_height.url} alt="GIF" onClick={() => setGifUrl(gif.images.fixed_height.url)} className="cursor-pointer w-24 h-24 rounded-lg" />)}</div>
-                                    </div>
-                                )}
-                                </div> */}
-                                <button onClick={sendMessage} className="ml-2 px-2 md:px-4 py-2 md:bg-blue-500 text-white rounded-lg md:hover:bg-blue-600">
-                                    {isMobileView ?             <svg className="w-6 h-6 rotate-90" fill="red" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                                <div className="">
+                                <button onClick={() => {
+                                    setShowGifPicker(prev => !prev); // ✅ Proper toggle logic
+                                    if (!showGifPicker) fetchGif();
+                                }} className="ml-2 px-2 py-2 md:bg-blue-500 text-red md:text-white rounded-lg hover:bg-blue-600"
+                                >GIF</button>
+                                {showGifPicker && (
+                                                <div  ref={gifPickerRef} className="absolute bottom-12 left-0 z-10 bg-white border p-2 w-72">
+                                                    <input type="text" placeholder="Search GIFs..." value={gifSearch} onChange={(e) => setGifSearch(e.target.value)} className="w-full p-2 border mb-2" />
+                                                    <button onClick={fetchGif} className="w-full bg-blue-500 text-white p-2 rounded">Search</button>
+                                                    <div className="grid grid-cols-3 gap-2 mt-2">{gifResults.map(gif => <img key={gif.id} src={gif.images.fixed_height.url} alt="GIF" onClick={() => sendMessage(gif.images.fixed_height.url)} className="cursor-pointer w-24 h-24 rounded-lg" />)}</div>
+                                                </div>
+                                            )}
+                                </div>
+                                <button onClick={() => sendMessage()} className="ml-2 px-2 md:px-4 py-2 md:bg-blue-500 text-white rounded-lg md:hover:bg-blue-600">
+                                    {isMobileView ?  <svg className="w-6 h-6 rotate-90" fill="red" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
  : "Send"}
                                 </button>
                             </div>
