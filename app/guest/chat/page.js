@@ -413,7 +413,7 @@ export default function Chat() {
                          </div>
                                                      {/* Chat Messages */}
                                                      <div className="flex-1 p-4 overflow-y-auto bg-gray-100 border-r">
-                                {!messages && messages
+                                {messages
                                     .filter(
                                         (msg) =>
                                             (msg.from === currentUser.username && msg.to === selectedUser.username) ||
