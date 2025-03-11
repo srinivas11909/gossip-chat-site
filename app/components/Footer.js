@@ -1,7 +1,8 @@
+import SubFooter from "./shared/FooterDater"
 export default function Footer(){
     return <>
-      <div className="w-full">
-          <p>Gossib</p>
-      </div>
+      <footer className="w-full bg-white">
+          <SubFooter />
+      </footer>
     </>
 }

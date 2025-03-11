@@ -51,6 +51,7 @@ export default function Chat() {
             const encryptedUser = Cookies.get("chatUser");
 
             if (!encryptedUser) {
+                console.warn("❌ No user found, redirecting...");
                 router.replace("/"); // ✅ Redirect to login if not logged in
                 return;
             }
@@ -62,10 +63,10 @@ export default function Chat() {
                 if (!decryptedData?.username) throw new Error("Invalid user data");
 
                 setCurrentUser(decryptedData);
-                await axios.post("/api/users", decryptedData);
+                //await axios.post("/api/users", decryptedData);
                 
                 //fetchUsers(decryptedData); // ✅ Fetch users **after** setting currentUser
-                setTimeout(fetchUsers, 2000); 
+                //setTimeout(fetchUsers, 2000); 
                 loadMessagesFromCookies();
                 //startInactivityTimer();
             } catch (error) {
@@ -148,35 +149,49 @@ export default function Chat() {
     
         eventSource.onmessage = (event) => {
             const newMessage = JSON.parse(event.data);
-    
-            setMessages((prev) => {
-                const updatedMessages = [...prev, newMessage];
+
+            setMessages((prevMessages) => {
+                const updatedMessages = [...prevMessages, newMessage];
                 Cookies.set("chatMessages", JSON.stringify(updatedMessages), { expires: 1 });
-    
-                if (newMessage.to === currentUser?.username && selectedUser?.username !== newMessage.from) {
-                    console.log("🔔 New message received for:", newMessage.to);
-                    console.log("📢 Checking canPlaySound:", canPlaySound);
-    
-                    if (canPlaySound) {
-                        console.log("🎵 Playing notification sound...");
-                        playNotificationSound();
-                    } else {
-                        console.warn("⚠️ Sound is disabled! Waiting for user interaction.");
-                    }
-    
-                    setUnreadMessages((prev) => ({
-                        ...prev,
-                        [newMessage.from]: (prev[newMessage.from] || 0) + 1
-                    }));
-                }
                 return updatedMessages;
             });
+            if (newMessage.to === currentUser.username && selectedUser?.username !== newMessage.from) {
+                if (canPlaySound) {
+                    playNotificationSound();
+                }
+    
+                setUnreadMessages((prev) => ({
+                    ...prev,
+                    [newMessage.from]: (prev[newMessage.from] || 0) + 1,
+                }));
+            }
+            // setMessages((prev) => {
+            //     const updatedMessages = [...prev, newMessage];
+            //     Cookies.set("chatMessages", JSON.stringify(updatedMessages), { expires: 1 });
+    
+            //     if (newMessage.to === currentUser?.username && selectedUser?.username !== newMessage.from) {
+            //         console.log("📢 Checking canPlaySound:", canPlaySound);
+    
+            //         if (canPlaySound) {
+            //             console.log("🎵 Playing notification sound...");
+            //             playNotificationSound();
+            //         } else {
+            //             console.warn("⚠️ Sound is disabled! Waiting for user interaction.");
+            //         }
+    
+            //         setUnreadMessages((prev) => ({
+            //             ...prev,
+            //             [newMessage.from]: (prev[newMessage.from] || 0) + 1
+            //         }));
+            //     }
+            //     return updatedMessages;
+            // });
         };
     
         return () => {
             eventSource.close();
         };
-    }, [currentUser, canPlaySound]);  // ✅ Added `canPlaySound` as a dependency
+    }, [currentUser, selectedUser,canPlaySound]);  // ✅ Added `canPlaySound` as a dependency
     
     // Send message
 
@@ -218,6 +233,10 @@ export default function Chat() {
 
     const sendMessage = async (content = "") => {
         if (!selectedUser || (!message.trim() && !content.trim())) return;
+        if (!currentUser) {
+            console.error("⛔ Error: currentUser is undefined, message not sent!");
+            return;
+        }
     
         const newMessage = {
             from: currentUser.username,
@@ -297,6 +316,7 @@ export default function Chat() {
     // ✅ Call only AFTER setting `currentUser`
     useEffect(() => {
         if (currentUser) {
+
             startInactivityTimer();
         }
     }, [currentUser]); // ✅ Run only when `currentUser` changes
@@ -398,14 +418,18 @@ export default function Chat() {
                 {/*sidebar or userslist*/}
 
                 <div className={`p-4 bg-white border-r md:w-1/4 w-full md:relative absolute ${selectedUser ? "hidden md:flex" : "flex"} flex-col h-screen`}>
-                <h3 className="text-lg font-semibold text-zinc-800 p-4 border-b">Online Users ({users.length})</h3>
+                <h3 className="text-lg font-semibold text-zinc-800 p-4 border-b text-uppercase">Online Users {users.length}</h3>
                 <div className="overflow-y-auto flex-1">
                     {users.map(user => (
                         <div 
                             key={user.username} 
                             onClick={() => {
                                 setSelectedUser(user);
-                                setUnreadMessages((prev) => ({ ...prev, [user.username]: 0 }));
+                                setUnreadMessages(prev => {
+                                    const updatedUnread = { ...prev };
+                                    updatedUnread[user.username] = 0;
+                                    return updatedUnread;
+                                });
                             }}
                             
                             className={`cursor-pointer p-3 relative flex items-center gap-3 border-b-[1px] border-white hover:opacity-80 transition ${
@@ -431,7 +455,8 @@ export default function Chat() {
                                             </span>
                                         )}
                                          <img 
-                                            src={`https://flagcdn.com/w40/${user.country.toLowerCase()}.png`} 
+                                            // src={`https://flagcdn.com/w40/${user.country.toLowerCase()}.png`} 
+                                            src={`https://cdn.ipwhois.io/flags/${user.country.toLowerCase()}.svg`}
                                             alt={`${user.country} Flag`} 
                                             className="w-6 absolute"
                                             style={{marginTop: "-8px",right: "20px", top:"50%"}}
@@ -472,13 +497,16 @@ export default function Chat() {
                            </div>
                          </div>
                      {/* Chat Messages */}
-                         <div className="flex-1 p-4 overflow-y-auto bg-gray-100 border-r">
+                         <div className="flex-1 p-4 overflow-y-auto bg-gray-100 border-r" data-user-name={currentUser?.username}>
                                 {messages
                                     .filter(
                                         (msg) =>
-                                            currentUser && selectedUser &&
-                                            (msg.from === currentUser.username && msg.to === selectedUser.username) ||
-                                            (msg.from === selectedUser.username && msg.to === currentUser.username)
+                                        
+                                            //if (!currentUser || !selectedUser) return false; // ✅ Ensure `currentUser` and `selectedUser` exist
+                                            (msg.from === currentUser?.username && msg.to === selectedUser?.username) ||
+                                            (msg.from === selectedUser?.username && msg.to === currentUser?.username)
+                                        
+                                           
                                     )
                                     .map((msg, index) => (
                                         <div key={index} className={`flex items-center mb-1 ${msg.from === currentUser.username ? "justify-end" : "justify-start"}`}>
@@ -517,6 +545,12 @@ export default function Chat() {
                                     type="text" 
                                     value={message} 
                                     onChange={(e) => setMessage(e.target.value)} 
+                                    onKeyDown={(e) => {
+                                        if(e.key === "Enter"){
+                                          e.preventDefault();
+                                          sendMessage();
+                                        }
+                                    }}
                                     className="flex-1 p-2 text-sm text-zinc-800 border rounded-lg focus:outline-none focus:ring-0" 
                                     placeholder="Type your message..."
                                 />

@@ -12,6 +12,8 @@ import CryptoJS from "crypto-js";
 
 
 const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY; // ✅ Load from `.env.local`
+const restrictedWords = ["sex", "porn", "nude", "xxx", "hot", "fuck", "dick", "boobs","pussy"]; 
+
 
 export default function Login(){
     const [username, setUsername] = useState("");
@@ -22,35 +24,37 @@ export default function Login(){
     const [countries, setCountries] = useState([]); // All countries 
     const [states, setStates] = useState([]); // states of selected countires 
     const [loadingLocation, setLoadingLocation] = useState(true);
+    const [stateName, setStateName] = useState("");
+    const [countryName, setCountryName] = useState("");
+    const [isUsernameTaken, setIsUsernameTaken] = useState(false);
+    const [invalidUsername, setInvalidUsername] = useState(false);
+    const [usernameSuggestions, setUsernameSuggestions] = useState([]);
+    const [checkingUsername, setCheckingUsername] = useState(false);
     const router = useRouter();
-    const [stateName, setStateName] = useState("")
-    const [countryName, setCountryName] = useState("")
+
 
     
     useEffect(() => {
       const checkLogin = async () => {
-          const encryptedUser = Cookies.get("chatUser");
-  
-          if (!encryptedUser) return; // ✅ Don't redirect if no user
-  
-          try {
-              const bytes = CryptoJS.AES.decrypt(encryptedUser, SECRET_KEY);
-              const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-  
-              if (decryptedData?.username) {
-                  router.replace("/guest/chat"); // ✅ Use `replace` to prevent flickering
-              }
-          } catch (error) {
-              console.error("Error decrypting user data:", error);
-              Cookies.remove("chatUser"); // ✅ Remove corrupted cookies
-          }
-      };
-  
-      // ✅ Run checkLogin only once
-      if (!Cookies.get("checkedLogin")) {
-          checkLogin();
-          Cookies.set("checkedLogin", "true"); // Prevent infinite loop
-      }
+        const encryptedUser = Cookies.get("chatUser");
+        if (!encryptedUser) return;
+
+        try {
+            const bytes = CryptoJS.AES.decrypt(encryptedUser, SECRET_KEY);
+            const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+            if (decryptedData?.username) {
+                router.replace("/guest/chat");
+            }
+        } catch (error) {
+            console.error("Error decrypting user data:", error);
+            Cookies.remove("chatUser");
+        }
+    };
+
+    if (!Cookies.get("checkedLogin")) {
+        checkLogin();
+        Cookies.set("checkedLogin", "true");
+    }
   }, []);
 
     // useEffect(() => {
@@ -115,7 +119,7 @@ export default function Login(){
       const statesData = State.getStatesOfCountry(selectedCountryCode);
       setStates(statesData);
       const matchedState = statesData.find((s) => s.name === detectedState);
-      setStateName(matchedState.name)
+      setStateName(matchedState?.name || statesData[0]?.name)
       setState(matchedState ? matchedState.isoCode : statesData[0]?.isoCode || "");
     };
 
@@ -125,13 +129,53 @@ export default function Login(){
       setCountry(newCountryCode);
       updateStates(newCountryCode);
     };
+     
+
+    useEffect(() => {
+      if (!username.trim()) {
+          setIsUsernameTaken(false);
+          setInvalidUsername(false);
+          setUsernameSuggestions([]);
+          return;
+      }
+
+      // 🚨 Check for restricted words
+      const containsRestrictedWord = restrictedWords.some((word) =>
+          username.toLowerCase().includes(word)
+      );
+      if (containsRestrictedWord) {
+          setInvalidUsername(true);
+          setIsUsernameTaken(false);
+          return;
+      }
+
+      // ✅ Check username availability
+      const checkUsername = async () => {
+          setCheckingUsername(true);
+          try {
+              const { data } = await axios.get(`/api/users?username=${username}`);
+              setIsUsernameTaken(data.exists);
+              setUsernameSuggestions(data.exists ? data.suggestions : []);
+          } catch (error) {
+              console.error("Error checking username:", error);
+          } finally {
+              setCheckingUsername(false);
+          }
+      };
+
+      const delayDebounce = setTimeout(checkUsername, 500);
+      return () => clearTimeout(delayDebounce);
+  }, [username]);
+
 
 
 
       const handleLogin = async () => {
         if (!username.trim()) return alert("Username is required!");
+        if (isUsernameTaken) return alert("Username is taken! Try a different one.");
+        if (invalidUsername) return alert("Username contains inappropriate words.");
         const newUser = { username, age, gender, country, state, countryName, stateName };
-
+        await axios.post("/api/users", newUser);
           // ✅ Encrypt user data before storing in cookies
           const encryptedData = CryptoJS.AES.encrypt(
             JSON.stringify(newUser),
@@ -139,7 +183,7 @@ export default function Login(){
         ).toString();
         Cookies.set("chatUser", encryptedData, { expires: 1, secure: true, sameSite: "Strict" });
 
-        await axios.post("/api/users", newUser);
+
         //sessionStorage.setItem("chatUser", JSON.stringify(newUser));
     
         if ("Notification" in window && Notification.permission !== "granted") {
@@ -148,12 +192,36 @@ export default function Login(){
     
         router.push("/guest/chat");
     };
-
+   
 
     return <>
       <div className="container">
             <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required 
-                className={`w-full bg-transparent font-semibold placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded pl-3 pr-8 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-400 shadow-sm focus:shadow-md appearance-none mb-3 ${username === '' ? "border-red-300 focus:border-red-400 hover:border-red-400": "border-slate-200"}`} />
+                className={`w-full bg-transparent font-semibold placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded pl-3 pr-8 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-400 shadow-sm focus:shadow-md appearance-none mb-3 ${username === '' ? "border-red-300 focus:border-red-400 hover:border-red-400": "border-slate-200"} ${invalidUsername ? "border-red-500" : isUsernameTaken ? "border-yellow-500" : "border-gray-300"}`} />
+                {/* 🚨 Show Error Message if Username is Invalid */}
+{invalidUsername && <p className="text-red-500 text-sm mb-1">Username contains inappropriate words.</p>}
+{checkingUsername && <p className="text-sm text-blue-500">Checking username...</p>}
+
+{/* ⚠️ Show Warning if Username is Taken  */}
+{isUsernameTaken && (
+    <div className="mt-2 p-2 bg-gray-100 rounded">
+        <p className="text-sm text-red-500"> Username already taken. Try these:</p>
+        <div className="flex gap-2 mt-1">
+            {usernameSuggestions.map((suggestion, index) => (
+                <button 
+                    key={index} 
+                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                    onClick={() => {
+                        setUsername(suggestion);
+                    }}
+                >
+                    {suggestion}
+                </button>
+            ))}
+        </div>
+    </div>
+)}
+
             <div className="flex flex-wrap mb-3">
             <select value={age} onChange={(e) => setAge(e.target.value)}  className={`w-1/3 font-semibold bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded pl-3 pr-8 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-400 shadow-sm focus:shadow-md appearance-none ${classes.slect}`}>
                 {Array.from({ length: 43 }, (_, i) => 18 + i).map((num) => (
