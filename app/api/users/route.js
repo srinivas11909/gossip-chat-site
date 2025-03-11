@@ -124,8 +124,3 @@ function generateUsernameSuggestions(baseUsername) {
 //   return NextResponse.json({ success: true });
 // }
 
-// export async function DELETE(req) {
-//   const { username } = await req.json();
-//   onlineUsers = onlineUsers.filter((user) => user.username !== username);
-//   return NextResponse.json({ success: true });
-// }
